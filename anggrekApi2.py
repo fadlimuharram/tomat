@@ -17,6 +17,9 @@ import pandas as pd
 import numpy as np
 from keras.preprocessing import image
 import flask
+from flask import request, redirect, url_for
+from werkzeug.utils import secure_filename
+import os
 
 # initialize our Flask application and the Keras model
 app = flask.Flask(__name__)
@@ -25,6 +28,17 @@ train_set = None
 test_set = None
 datanya = None
 
+UPLOAD_FOLDER = '/Users/fadlimuharram/Documents/cnn/upload'
+ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
+
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+           
 def load_model():
     global klasifikasi, train_set, test_set, datanya
     # initialising the cnn
@@ -56,7 +70,7 @@ def load_model():
     # step 4 -full connection
     klasifikasi.add(Dense(units = 128, activation = 'relu'))
     klasifikasi.add(Dense(output_dim = 128, activation='relu'))
-    klasifikasi.add(Dense(units = 3, activation = 'softmax'))
+    klasifikasi.add(Dense(units = 8, activation = 'softmax'))
     print("Full Connection Between Hidden Layers and Output Layers Completed")
     
     
@@ -75,25 +89,27 @@ def load_model():
     test_datagen = ImageDataGenerator(rescale=1./255)
     
     train_set = train_datagen.flow_from_directory(
-            'tomat/color/sample/training_set',
+            'tomat/color/dummy/training_set',
             target_size=(64, 64),
             batch_size=8,
             class_mode='categorical')
     
     test_set = test_datagen.flow_from_directory(
-            'tomat/color/sample/testing_set',
+            'tomat/color/dummy/testing_set',
             target_size=(64, 64),
             batch_size=8,
             class_mode='categorical')
     datanya = klasifikasi.fit_generator(
         train_set,
-        steps_per_epoch=43,
-        epochs=5,
+        steps_per_epoch=809,
+        epochs=10,
         validation_data=test_set,
-        validation_steps=26)
+        validation_steps=409)
     
     klasifikasi._make_predict_function()
     print("Compiling Completed")
+
+
 
 @app.route("/predict")
 def predictnya():
@@ -106,6 +122,7 @@ def predictnya():
     test_image = np.expand_dims(test_image, axis = 0)
     result = klasifikasi.predict(test_image).tolist()
     result = pd.Series(result).to_json(orient='values')
+    print(train_set.class_indices)
     #train_set.class_indices
     
     #preds = klasifikasi.predict(test_image)
@@ -125,11 +142,50 @@ def predictnya():
     return flask.jsonify(result)
 
         
+@app.route('/', methods=['GET', 'POST'])
+def upload_file():
+    global train_set, klasifikasi
+    if request.method == 'POST':
+        # check if the post request has the file part
+        if 'file' not in request.files:
+            print('No file part')
+            return redirect(request.url)
+        file = request.files['file']
+        # if user does not select file, browser also
+        # submit a empty part without filename
+        if file.filename == '':
+            print('No selected file')
+            return redirect(request.url)
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            print(filename)
+    
+            test_image = image.load_img('upload/' + filename, target_size = (64, 64))
+            test_image = image.img_to_array(test_image)
+            test_image = np.expand_dims(test_image, axis = 0)
+            result = klasifikasi.predict(test_image).tolist()
+            result = pd.Series(result).to_json(orient='values')
+            print(train_set.class_indices)
+            '''return redirect(url_for('uploaded_file',filename=filename))'''
+            print(result)
+        
+            return flask.jsonify(result)
 
+            
+    return '''
+    <!doctype html>
+    <title>Upload new File</title>
+    <h1>Upload new File</h1>
+    <form method=post enctype=multipart/form-data>
+      <p><input type=file name=file>
+         <input type=submit value=Upload>
+    </form>
+    '''
   
         
 if __name__ == '__main__':
     print(("* Loading Keras model and Flask starting server..."
         "please wait until server has fully started"))
     load_model()
-    app.run(debug=True)
+    app.run(host='192.168.43.70', port=5050,debug=True)
