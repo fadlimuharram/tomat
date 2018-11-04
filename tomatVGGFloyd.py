@@ -62,6 +62,9 @@ klasifikasi.add(Dense(4096, activation='relu'))
 klasifikasi.add(Dropout(0.5))
 klasifikasi.add(Dense(10, activation='softmax'))
 
+# kompile cnn
+klasifikasi.compile(optimizer='adam', loss='categorical_crossentropy', metrics= ['accuracy'])
+print("Compiling Initiated")
 
 # part 2 -fitting the cnn to images
 from keras.preprocessing.image import ImageDataGenerator
@@ -91,7 +94,7 @@ tensorboard = TensorBoard(log_dir="logs/{}".format(time()))
 datanya = klasifikasi.fit_generator(
         train_set,
         steps_per_epoch=11307,
-        epochs=25,
+        epochs=10,
         validation_data=test_set,
         validation_steps=6854,
         callbacks=[tensorboard])
