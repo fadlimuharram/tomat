@@ -7,20 +7,19 @@ Created on Sun Nov  4 18:15:13 2018
 """
 
 # import the necessary packages
+from time import time
 from keras.models import Sequential
 from keras.layers import Convolution2D
 from keras.layers import MaxPooling2D
 from keras.layers import Flatten
 from keras.layers import Dense
 from keras.layers import Dropout
-
+from keras.callbacks import TensorBoard
 from keras.preprocessing.image import ImageDataGenerator
-import pandas as pd
 import numpy as np
 from keras.preprocessing import image
 import flask
 from flask import request, redirect, url_for
-from flask.json import dump
 from werkzeug.utils import secure_filename
 import os
 import matplotlib.pyplot as plt
@@ -36,7 +35,7 @@ jumlahKelas = None
 
 '''development atau production atau initial'''
 
-MODENYA = 'development' 
+MODENYA = 'production' 
 
 IPNYA = '192.168.43.70'
 PORTNYA = 5050
@@ -154,12 +153,15 @@ def load_model():
         
     elif MODENYA == 'production' :
         
+        tensorboard = TensorBoard(log_dir="logs/{}".format(time()))
+        
         datanya = klasifikasi.fit_generator(
             train_set,
             steps_per_epoch=hitungGambar(LOKASI_TRAINING),
             epochs=5,
             validation_data=test_set,
-            validation_steps=hitungGambar(LOKASI_TESTING))
+            validation_steps=hitungGambar(LOKASI_TESTING),
+            callbacks=[tensorboard])
         
     elif MODENYA == 'initial' :
         
@@ -216,7 +218,7 @@ def upload_file():
             print(filename)
             
             lokasiTest = LOKASI_UPLOAD + '/' + filename
-            fl = filename
+          
             test_image = image.load_img('static/' + lokasiTest, target_size = (64, 64))
             test_image = image.img_to_array(test_image)
             test_image = np.expand_dims(test_image, axis = 0)
